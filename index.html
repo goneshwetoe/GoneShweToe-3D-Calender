@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>GoneShweToe – Myanmar 3D Lottery Calendar</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<script src="https://cdn.tailwindcss.com"></script>
+
+<style>
+body { font-family: system-ui, sans-serif; }
+.cell { transition: transform .15s; }
+.cell:active { transform: scale(1.08); }
+</style>
+</head>
+
+<body class="bg-slate-50 text-slate-900">
+
+<header class="p-4 bg-white shadow flex justify-between items-center">
+  <div>
+    <h1 class="text-xl font-black text-blue-600">GoneShweToe</h1>
+    <p class="text-xs opacity-60">Myanmar 3D Lottery Calendar</p>
+  </div>
+</header>
+
+<main class="p-4 max-w-6xl mx-auto">
+
+  <!-- Insight -->
+  <section class="mb-4 p-4 bg-white rounded-xl shadow">
+    <h2 class="font-bold mb-2">Data Insight</h2>
+    <p id="insight" class="text-sm opacity-70">Select a number to see insight</p>
+  </section>
+
+  <!-- Table -->
+  <section class="overflow-auto bg-white rounded-xl shadow p-2">
+    <table class="border-collapse">
+      <thead>
+        <tr>
+          <th class="p-2 sticky left-0 bg-white">Round</th>
+          <th id="years"></th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </section>
+
+</main>
+
+<footer class="p-4 text-center text-xs opacity-60">
+© 2025 GoneShweToe – Historical data only. No prediction implied.
+</footer>
+
+<script>
+const DATA_URL = "./data/public_data.json";
+const USER_KEY = "gst_user_data";
+
+let publicData = [];
+let userData = JSON.parse(localStorage.getItem(USER_KEY) || "{}");
+
+fetch(DATA_URL)
+  .then(r => r.json())
+  .then(d => {
+    publicData = d;
+    render();
+  });
+
+function render() {
+  const map = {};
+  publicData.forEach(d => {
+    const date = new Date(d.date);
+    const y = date.getFullYear();
+    const r = date.getMonth() * 2 + (date.getDate() > 1 ? 1 : 0);
+    if (!map[y]) map[y] = Array(24).fill("");
+    map[y][r] = d.number;
+  });
+
+  const years = Object.keys(map);
+  document.getElementById("years").innerHTML =
+    years.map(y => `<span class="p-2">${y}</span>`).join("");
+
+  const body = document.getElementById("tableBody");
+  body.innerHTML = "";
+
+  for (let r = 0; r < 24; r++) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td class="p-2 sticky left-0 bg-white font-bold">${r+1}</td>`;
+    years.forEach(y => {
+      const id = `${y}-${r}`;
+      const num = map[y][r] || "";
+      const u = userData[id] || {};
+      const td = document.createElement("td");
+      td.className = "p-2 cell text-center cursor-pointer";
+      td.style.background = u.color || "#f8fafc";
+      td.innerHTML = num || "-";
+      td.onclick = () => editCell(id, num);
+      tr.appendChild(td);
+    });
+    body.appendChild(tr);
+  }
+}
+
+function editCell(id, num) {
+  const note = prompt("Your personal note:", userData[id]?.note || "");
+  if (note === null) return;
+  const color = prompt("Color hex (#f59e0b):", userData[id]?.color || "");
+  userData[id] = { note, color };
+  localStorage.setItem(USER_KEY, JSON.stringify(userData));
+  render();
+}
+</script>
+
+</body>
+</html>
