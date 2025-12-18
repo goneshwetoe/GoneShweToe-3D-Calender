@@ -7,36 +7,41 @@
 <script src="https://cdn.tailwindcss.com"></script>
 
 <style>
-body { font-family: system-ui, sans-serif; }
-.cell { transition: transform .15s; }
+body { font-family: system-ui, -apple-system, sans-serif; }
+.cell { transition: all .15s ease; }
 .cell:active { transform: scale(1.08); }
 </style>
 </head>
 
-<body class="bg-slate-50 text-slate-900">
+<body class="bg-slate-100 text-slate-900">
 
-<header class="p-4 bg-white shadow flex justify-between items-center">
-  <div>
-    <h1 class="text-xl font-black text-blue-600">GoneShweToe</h1>
-    <p class="text-xs opacity-60">Myanmar 3D Lottery Calendar</p>
+<!-- HEADER -->
+<header class="sticky top-0 z-50 bg-white shadow">
+  <div class="max-w-6xl mx-auto p-4 flex justify-between items-center">
+    <div>
+      <h1 class="text-xl font-black text-blue-600">GoneShweToe</h1>
+      <p class="text-xs opacity-60">Myanmar 3D Lottery Calendar</p>
+    </div>
   </div>
 </header>
 
-<main class="p-4 max-w-6xl mx-auto">
+<!-- MAIN -->
+<main class="max-w-6xl mx-auto p-4 space-y-4">
 
-  <!-- Insight -->
-  <section class="mb-4 p-4 bg-white rounded-xl shadow">
-    <h2 class="font-bold mb-2">Data Insight</h2>
-    <p id="insight" class="text-sm opacity-70">Select a number to see insight</p>
+  <!-- INSIGHT PANEL -->
+  <section class="bg-white rounded-xl shadow p-4">
+    <h2 class="font-bold mb-2">📊 Data Insight</h2>
+    <div id="insight" class="text-sm space-y-1 opacity-80">
+      Loading insights...
+    </div>
   </section>
 
-  <!-- Table -->
-  <section class="overflow-auto bg-white rounded-xl shadow p-2">
-    <table class="border-collapse">
-      <thead>
-        <tr>
-          <th class="p-2 sticky left-0 bg-white">Round</th>
-          <th id="years"></th>
+  <!-- TABLE -->
+  <section class="bg-white rounded-xl shadow overflow-auto">
+    <table class="border-collapse text-sm">
+      <thead class="bg-slate-50 sticky top-0">
+        <tr id="yearRow">
+          <th class="p-2 sticky left-0 bg-slate-50">Round</th>
         </tr>
       </thead>
       <tbody id="tableBody"></tbody>
@@ -45,8 +50,9 @@ body { font-family: system-ui, sans-serif; }
 
 </main>
 
-<footer class="p-4 text-center text-xs opacity-60">
-© 2025 GoneShweToe – Historical data only. No prediction implied.
+<!-- FOOTER -->
+<footer class="text-center text-xs opacity-60 p-4">
+© 2025 GoneShweToe • Historical data only • User notes stored locally
 </footer>
 
 <script>
@@ -60,22 +66,35 @@ fetch(DATA_URL)
   .then(r => r.json())
   .then(d => {
     publicData = d;
-    render();
+    renderAll();
   });
 
-function render() {
+function renderAll() {
   const map = {};
+  const rounds = [];
+
   publicData.forEach(d => {
-    const date = new Date(d.date);
-    const y = date.getFullYear();
-    const r = date.getMonth() * 2 + (date.getDate() > 1 ? 1 : 0);
+    const dt = new Date(d.date);
+    const y = dt.getFullYear();
+    const r = dt.getMonth() * 2 + (dt.getDate() > 1 ? 1 : 0);
     if (!map[y]) map[y] = Array(24).fill("");
     map[y][r] = d.number;
+    rounds.push(d.number);
   });
 
   const years = Object.keys(map);
-  document.getElementById("years").innerHTML =
-    years.map(y => `<span class="p-2">${y}</span>`).join("");
+  renderTable(map, years);
+  renderInsight(rounds);
+}
+
+function renderTable(map, years) {
+  const yearRow = document.getElementById("yearRow");
+  years.forEach(y => {
+    const th = document.createElement("th");
+    th.className = "p-2";
+    th.textContent = y;
+    yearRow.appendChild(th);
+  });
 
   const body = document.getElementById("tableBody");
   body.innerHTML = "";
@@ -83,28 +102,50 @@ function render() {
   for (let r = 0; r < 24; r++) {
     const tr = document.createElement("tr");
     tr.innerHTML = `<td class="p-2 sticky left-0 bg-white font-bold">${r+1}</td>`;
+
     years.forEach(y => {
       const id = `${y}-${r}`;
       const num = map[y][r] || "";
       const u = userData[id] || {};
       const td = document.createElement("td");
-      td.className = "p-2 cell text-center cursor-pointer";
+      td.className = "p-2 text-center cell cursor-pointer";
       td.style.background = u.color || "#f8fafc";
-      td.innerHTML = num || "-";
-      td.onclick = () => editCell(id, num);
+      td.textContent = num || "–";
+      td.onclick = () => saveUserData(id);
       tr.appendChild(td);
     });
     body.appendChild(tr);
   }
 }
 
-function editCell(id, num) {
-  const note = prompt("Your personal note:", userData[id]?.note || "");
+function saveUserData(id) {
+  const note = prompt("Personal note (only on this device):", userData[id]?.note || "");
   if (note === null) return;
-  const color = prompt("Color hex (#f59e0b):", userData[id]?.color || "");
+  const color = prompt("Highlight color (#f59e0b):", userData[id]?.color || "");
   userData[id] = { note, color };
   localStorage.setItem(USER_KEY, JSON.stringify(userData));
-  render();
+  location.reload();
+}
+
+function renderInsight(numbers) {
+  const freq = {};
+  numbers.forEach(n => {
+    if (!n) return;
+    n.split("").forEach(d => freq[d] = (freq[d] || 0) + 1);
+  });
+
+  const sortedDigits = Object.entries(freq).sort((a,b)=>b[1]-a[1]);
+  const hot = numbers.slice(-10).filter(Boolean);
+  const cold = Object.keys(freq).filter(d => !hot.join("").includes(d));
+
+  document.getElementById("insight").innerHTML = `
+    <div>🔥 <b>Hot (recent):</b> ${hot.slice(-5).join(", ") || "-"}</div>
+    <div>❄️ <b>Cold digits:</b> ${cold.join(", ") || "-"}</div>
+    <div>🔢 <b>Most frequent digit:</b> ${sortedDigits[0]?.[0] || "-"}</div>
+    <div class="pt-2 text-xs opacity-60">
+      Insight is based on historical frequency only.
+    </div>
+  `;
 }
 </script>
 
