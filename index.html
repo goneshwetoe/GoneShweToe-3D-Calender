@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="my" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GoneShweToe – Myanmar 3D Lottery Analytics</title>
+    
+    <!-- SEO & Icons -->
+    <meta name="description" content="Professional Myanmar 3D Lottery Calendar and Analytics Tool">
+    <link rel="manifest" href="manifest.json">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                        },
+                        accent: '#f59e0b'
+                    },
+                    borderRadius: {
+                        'xl': '1rem',
+                        '2xl': '1.5rem',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        
+        body { font-family: 'Inter', sans-serif; overflow-x: hidden; }
+        .glass { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); }
+        .dark .glass { background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255, 255, 255, 0.1); }
+        
+        /* 3D Cell Styling */
+        .cell-3d {
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            perspective: 1000px;
+            position: relative;
+            transform-style: preserve-3d;
+            box-shadow: 0 4px 0 rgb(226, 232, 240);
+        }
+        .dark .cell-3d { box-shadow: 0 4px 0 rgb(30, 41, 59); }
+        
+        .cell-3d:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 0 rgb(203, 213, 225);
+        }
+        .dark .cell-3d:hover { box-shadow: 0 6px 0 rgb(15, 23, 42); }
+
+        .cell-3d:active {
+            transform: translateY(4px);
+            box-shadow: 0 0 0 transparent;
+        }
+
+        /* Highlighting and Line Logic */
+        .match-highlight {
+            background-color: rgba(59, 130, 246, 0.2) !important;
+            outline: 2px solid #3b82f6;
+            z-index: 50;
+        }
+
+        /* SVG Line layer */
+        #lineLayer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 40;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+    </style>
+</head>
+
+<body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300 relative">
+
+    <svg id="lineLayer"></svg>
+
+    <!-- Navigation -->
+    <nav class="sticky top-0 z-[60] glass shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center gap-2">
+                    <div class="w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-brand-500/30">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-extrabold tracking-tight bg-gradient-to-r from-brand-600 to-blue-400 bg-clip-text text-transparent">GoneShweToe</h1>
+                        <p class="text-[10px] uppercase tracking-widest opacity-50 font-bold">3D Analytics Hub</p>
+                    </div>
+                </div>
+                
+                <!-- NEW Preview Bar -->
+                <div id="livePreview" class="hidden md:flex items-center gap-6 px-4 py-2 bg-slate-100 dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 animate-in fade-in zoom-in duration-300">
+                   <div class="flex items-center gap-2">
+                       <span class="text-xs font-bold opacity-50 uppercase">Number:</span>
+                       <span id="prevNum" class="font-black text-brand-600">---</span>
+                   </div>
+                   <div class="flex items-center gap-2 border-l border-slate-300 dark:border-slate-600 pl-4">
+                       <span class="text-xs font-bold opacity-50 uppercase">Total Draws:</span>
+                       <span id="prevCount" class="font-bold">0</span>
+                   </div>
+                   <div class="flex items-center gap-2 border-l border-slate-300 dark:border-slate-600 pl-4">
+                       <span class="text-xs font-bold opacity-50 uppercase">Latest Year:</span>
+                       <span id="prevYear" class="font-bold">----</span>
+                   </div>
+                </div>
+
+                <div class="flex items-center gap-4">
+                    <button id="darkToggle" class="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:ring-2 ring-brand-500 transition-all">
+                        <i class="fas fa-moon dark:hidden"></i>
+                        <i class="fas fa-sun hidden dark:block text-yellow-400"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
+        
+        <!-- Welcome Hero -->
+        <section id="welcomeCard" class="relative overflow-hidden bg-brand-600 rounded-3xl p-6 text-white shadow-2xl shadow-brand-500/20">
+            <div class="relative z-10 flex flex-col md:flex-row justify-between items-center gap-6">
+                <div class="space-y-2 text-center md:text-left">
+                    <h2 class="text-2xl font-bold">မင်္ဂလာပါ 👋</h2>
+                    <p class="text-brand-100 max-w-md">GoneShweToe ရဲ့ Professional Analytics Tools တွေကို အသုံးပြုပြီး 3D ဂဏန်းထွက်နှုန်းတွေကို လေ့လာနိုင်ပါတယ်။</p>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="document.getElementById('welcomeCard').remove()" class="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm transition-colors">ပိတ်မည်</button>
+                </div>
+            </div>
+            <div class="absolute -right-20 -top-20 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+        </section>
+
+        <!-- Stats Grid -->
+        <section class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+                <div class="flex items-center gap-3 mb-2">
+                    <span class="p-2 bg-orange-100 dark:bg-orange-900/30 text-orange-600 rounded-lg text-xs"><i class="fas fa-fire"></i></span>
+                    <span class="text-xs font-semibold opacity-60">Hot Numbers</span>
+                </div>
+                <div id="hot" class="text-2xl font-black tracking-tighter">--</div>
+            </div>
+            
+            <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+                <div class="flex items-center gap-3 mb-2">
+                    <span class="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-lg text-xs"><i class="fas fa-snowflake"></i></span>
+                    <span class="text-xs font-semibold opacity-60">Cold Numbers</span>
+                </div>
+                <div id="cold" class="text-2xl font-black tracking-tighter">--</div>
+            </div>
+
+            <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+                <div class="flex items-center gap-3 mb-2">
+                    <span class="p-2 bg-green-100 dark:bg-green-900/30 text-green-600 rounded-lg text-xs"><i class="fas fa-redo"></i></span>
+                    <span class="text-xs font-semibold opacity-60">Most Frequent</span>
+                </div>
+                <div id="freq" class="text-2xl font-black tracking-tighter">--</div>
+            </div>
+
+            <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+                <div class="flex items-center gap-3 mb-2">
+                    <span class="p-2 bg-purple-100 dark:bg-purple-900/30 text-purple-600 rounded-lg text-xs"><i class="fas fa-history"></i></span>
+                    <span class="text-xs font-semibold opacity-60">Last Draw</span>
+                </div>
+                <div id="lastDraw" class="text-2xl font-black tracking-tighter">--</div>
+            </div>
+        </section>
+
+        <!-- Charts Section -->
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2 bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800">
+                <h3 class="font-bold mb-4 flex items-center gap-2">
+                    <i class="fas fa-chart-area text-brand-600"></i>
+                    Digit Frequency Analysis
+                </h3>
+                <div class="h-64">
+                    <canvas id="freqChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800">
+                <h3 class="font-bold mb-4 flex items-center gap-2">
+                    <i class="fas fa-info-circle text-brand-600"></i>
+                    Quick Tips
+                </h3>
+                <ul class="space-y-4 text-sm opacity-80">
+                    <li class="flex gap-3">
+                        <span class="text-brand-600 mt-1"><i class="fas fa-check-circle"></i></span>
+                        ဂဏန်းတစ်ခုကို နှိပ်ပြီး ကိုယ်ပိုင် မှတ်စုများ ရေးမှတ်ထားနိုင်ပါသည်။
+                    </li>
+                    <li class="flex gap-3">
+                        <span class="text-brand-600 mt-1"><i class="fas fa-check-circle"></i></span>
+                        တူညီသော ဂဏန်းများကို အလိုအလျောက် လိုင်းဆွဲပြသပေးပါသည်။
+                    </li>
+                    <li class="flex gap-3">
+                        <span class="text-brand-600 mt-1"><i class="fas fa-check-circle"></i></span>
+                        အပတ်စဉ် ထွက်ဂဏန်းများကို အချိန်နှင့်တပြေးညီ ကြည့်ရှုနိုင်ပါသည်။
+                    </li>
+                </ul>
+                <button onclick="exportUserData()" class="mt-6 w-full py-3 bg-slate-100 dark:bg-slate-800 rounded-xl font-bold text-xs hover:bg-slate-200 transition-colors uppercase tracking-widest">
+                    <i class="fas fa-download mr-2"></i> Backup My Notes
+                </button>
+            </div>
+        </section>
+
+        <!-- Main Data Table -->
+        <section class="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden relative">
+            <div class="p-6 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <h3 class="font-bold text-lg">Historical Records</h3>
+                <div class="flex items-center gap-2 text-xs bg-slate-50 dark:bg-slate-800 p-1 rounded-lg">
+                    <span class="px-3 py-1 bg-white dark:bg-slate-700 rounded shadow-sm font-bold uppercase">Multi-Year Connect View</span>
+                </div>
+            </div>
+            
+            <div class="overflow-x-auto relative">
+                <table id="mainTable" class="w-full text-sm">
+                    <thead class="bg-slate-50/50 dark:bg-slate-800/50">
+                        <tr id="yearRow">
+                            <th class="p-4 text-left font-bold text-slate-400 uppercase tracking-wider sticky left-0 glass z-[55]">Round</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-100 dark:divide-slate-800">
+                        <!-- Content via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Floating Powerpoint-style Toolbox -->
+    <div id="toolbox" class="fixed right-6 bottom-6 flex flex-col gap-2 z-[70] translate-x-32 transition-transform duration-500">
+        <div class="bg-white dark:bg-slate-900 p-2 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col items-center gap-3">
+            <div class="text-[10px] font-black uppercase tracking-tighter opacity-40">Editor</div>
+            <button onclick="triggerColor()" class="w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center hover:bg-brand-600 hover:text-white transition-all">
+                <i class="fas fa-palette"></i>
+            </button>
+            <button onclick="triggerNote()" class="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center hover:bg-orange-600 hover:text-white transition-all">
+                <i class="fas fa-sticky-note"></i>
+            </button>
+            <button onclick="saveModal()" class="w-10 h-10 rounded-xl bg-green-50 text-green-600 flex items-center justify-center hover:bg-green-600 hover:text-white transition-all">
+                <i class="fas fa-save"></i>
+            </button>
+            <div class="w-8 h-[1px] bg-slate-200 dark:bg-slate-800"></div>
+            <button onclick="closeToolbox()" class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+
+    <footer class="mt-12 p-8 text-center glass border-t border-slate-200 dark:border-slate-800">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <p class="text-sm opacity-60">© 2025 GoneShweToe. Designed for high-performance lottery tracking.</p>
+            <div class="flex gap-6 text-xl opacity-40">
+                <i class="fab fa-github hover:opacity-100 cursor-pointer"></i>
+                <i class="fab fa-facebook hover:opacity-100 cursor-pointer"></i>
+                <i class="fab fa-telegram hover:opacity-100 cursor-pointer"></i>
+            </div>
+        </div>
+    </footer>
+
+    <!-- MODAL - Integrated with Toolbox Logic -->
+    <div id="modal" class="fixed inset-0 z-[100] hidden items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm p-0 sm:p-4">
+        <div class="bg-white dark:bg-slate-900 w-full sm:max-w-md rounded-t-[2.5rem] sm:rounded-[2rem] p-8 shadow-2xl transform transition-all animate-in slide-in-from-bottom duration-300">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold">Edit Entry</h3>
+                <button onclick="closeModal()" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-4">
+                <div id="colorSection">
+                    <label class="block text-xs font-bold uppercase tracking-widest opacity-50 mb-2">Highlight Color</label>
+                    <input id="colorInput" type="color" class="w-full h-12 rounded-xl bg-transparent cursor-pointer border-none"/>
+                </div>
+                <div id="noteSection">
+                    <label class="block text-xs font-bold uppercase tracking-widest opacity-50 mb-2">Personal Note</label>
+                    <textarea id="noteInput" rows="3" class="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 focus:ring-2 ring-brand-500 transition-all outline-none" placeholder="Add your logic..."></textarea>
+                </div>
+                <div class="flex gap-3 pt-4">
+                    <button onclick="closeModal()" class="flex-1 py-4 font-bold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-2xl transition-colors">Cancel</button>
+                    <button onclick="saveModal()" class="flex-1 py-4 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-2xl shadow-lg shadow-brand-500/30 transition-all">Apply All</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- DATA LOGIC ---
+        const DATA_URL = "./data/public_data.json";
+        const KEY = "gst_pro_user_v2";
+        let userData = JSON.parse(localStorage.getItem(KEY) || "{}");
+        let currentId = null;
+        let DATA = [];
+        let chartInstance = null;
+
+        const MOCK_DATA = [
+            { date: "2023-01-01", number: "123" }, { date: "2023-01-16", number: "556" },
+            { date: "2024-01-01", number: "123" }, { date: "2024-01-16", number: "456" },
+            { date: "2024-02-01", number: "789" }, { date: "2024-02-16", number: "123" },
+            { date: "2024-12-01", number: "012" }
+        ];
+
+        async function init() {
+            try {
+                const response = await fetch(DATA_URL);
+                if (!response.ok) throw new Error();
+                DATA = await response.json();
+            } catch (e) {
+                DATA = MOCK_DATA;
+            }
+            render();
+            updateStats();
+            initChart();
+            window.addEventListener('resize', () => clearLines());
+        }
+
+        function render() {
+            const years = [...new Set(DATA.map(d => new Date(d.date).getFullYear()))].sort((a,b) => b-a);
+            const map = {};
+            years.forEach(y => map[y] = Array(24).fill(""));
+
+            DATA.forEach(d => {
+                const dt = new Date(d.date);
+                const r = dt.getMonth() * 2 + (dt.getDate() > 10 ? 1 : 0);
+                if (map[dt.getFullYear()]) map[dt.getFullYear()][r] = d.number;
+            });
+
+            yearRow.innerHTML = '<th class="p-4 text-left font-bold text-slate-400 uppercase tracking-wider sticky left-0 glass z-[55]">Round</th>';
+            years.forEach(y => {
+                const th = document.createElement("th");
+                th.textContent = y;
+                th.className = "p-4 text-center font-bold min-w-[120px]";
+                yearRow.appendChild(th);
+            });
+
+            tableBody.innerHTML = "";
+            for (let r = 0; r < 24; r++) {
+                const tr = document.createElement("tr");
+                const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                const roundName = `${months[Math.floor(r/2)]} ${r % 2 === 0 ? '1st' : '2nd'}`;
+                
+                tr.innerHTML = `<td class="p-4 sticky left-0 glass font-bold text-slate-500 z-50">${roundName}</td>`;
+                
+                years.forEach(y => {
+                    const id = `${y}-${r}`;
+                    const val = map[y][r];
+                    const td = document.createElement("td");
+                    td.className = "p-4 text-center";
+                    
+                    const btn = document.createElement("button");
+                    btn.className = "w-full py-3 rounded-xl cell-3d font-mono font-black text-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center";
+                    btn.textContent = val || "—";
+                    btn.dataset.num = val;
+                    btn.dataset.id = id;
+                    btn.dataset.year = y;
+
+                    if (!val) btn.classList.add("opacity-10", "pointer-events-none");
+
+                    if (userData[id]?.color) {
+                        btn.style.backgroundColor = userData[id].color;
+                        btn.style.color = "white";
+                        btn.style.boxShadow = `0 4px 0 ${userData[id].color}99`;
+                    }
+
+                    btn.onmouseenter = (e) => highlightSame(val, e.target);
+                    btn.onmouseleave = () => resetHighlight();
+                    btn.onclick = () => openToolbox(id);
+
+                    td.appendChild(btn);
+                    tr.appendChild(td);
+                });
+                tableBody.appendChild(tr);
+            }
+        }
+
+        // --- LINE & PREVIEW LOGIC ---
+        function highlightSame(num, target) {
+            if (!num) return;
+            const cells = document.querySelectorAll(`button[data-num="${num}"]`);
+            const rects = [];
+            
+            // Preview logic
+            let latestYear = 0;
+            cells.forEach(c => {
+                c.classList.add("match-highlight");
+                rects.push(c.getBoundingClientRect());
+                const y = parseInt(c.dataset.year);
+                if (y > latestYear) latestYear = y;
+            });
+
+            // Update Preview Bar
+            prevNum.textContent = num;
+            prevCount.textContent = cells.length;
+            prevYear.textContent = latestYear;
+            document.getElementById('livePreview').classList.remove('hidden');
+
+            drawLines(cells);
+        }
+
+        function resetHighlight() {
+            document.querySelectorAll(".match-highlight").forEach(c => c.classList.remove("match-highlight"));
+            document.getElementById('livePreview').classList.add('hidden');
+            clearLines();
+        }
+
+        function drawLines(elements) {
+            const svg = document.getElementById('lineLayer');
+            svg.innerHTML = "";
+            const svgRect = svg.getBoundingClientRect();
+
+            for (let i = 0; i < elements.length - 1; i++) {
+                const r1 = elements[i].getBoundingClientRect();
+                const r2 = elements[i+1].getBoundingClientRect();
+
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("x1", r1.left + r1.width/2 - svgRect.left);
+                line.setAttribute("y1", r1.top + r1.height/2 - svgRect.top);
+                line.setAttribute("x2", r2.left + r2.width/2 - svgRect.left);
+                line.setAttribute("y2", r2.top + r2.height/2 - svgRect.top);
+                line.setAttribute("stroke", "#3b82f6");
+                line.setAttribute("stroke-width", "3");
+                line.setAttribute("stroke-dasharray", "8,4");
+                line.setAttribute("opacity", "0.6");
+                svg.appendChild(line);
+            }
+        }
+
+        function clearLines() {
+            document.getElementById('lineLayer').innerHTML = "";
+        }
+
+        // --- TOOLBOX & MODAL LOGIC ---
+        function openToolbox(id) {
+            currentId = id;
+            const box = document.getElementById('toolbox');
+            box.classList.remove("translate-x-32");
+            
+            // Pre-fill
+            colorInput.value = userData[id]?.color || "#3b82f6";
+            noteInput.value = userData[id]?.note || "";
+        }
+
+        function closeToolbox() {
+            document.getElementById('toolbox').classList.add("translate-x-32");
+        }
+
+        function triggerColor() {
+            const m = document.getElementById('modal');
+            m.classList.remove("hidden"); m.classList.add("flex");
+            document.getElementById('noteSection').classList.add('hidden');
+            document.getElementById('colorSection').classList.remove('hidden');
+        }
+
+        function triggerNote() {
+            const m = document.getElementById('modal');
+            m.classList.remove("hidden"); m.classList.add("flex");
+            document.getElementById('colorSection').classList.add('hidden');
+            document.getElementById('noteSection').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            const m = document.getElementById('modal');
+            m.classList.add("hidden"); m.classList.remove("flex");
+        }
+
+        function saveModal() {
+            userData[currentId] = { 
+                color: colorInput.value, 
+                note: noteInput.value 
+            };
+            localStorage.setItem(KEY, JSON.stringify(userData));
+            render();
+            closeModal();
+            closeToolbox();
+        }
+
+        // --- STATS & CHARTS ---
+        function updateStats() {
+            if (!DATA.length) return;
+            const nums = DATA.map(d => d.number).join("");
+            const freqMap = {};
+            nums.split("").forEach(d => freqMap[d] = (freqMap[d] || 0) + 1);
+            const sorted = Object.entries(freqMap).sort((a, b) => b[1] - a[1]);
+            
+            hot.textContent = DATA[DATA.length-1].number;
+            lastDraw.textContent = DATA[DATA.length-1].number;
+            freq.textContent = sorted[0]?.[0] || "-";
+            cold.textContent = "7"; // Example logic
+        }
+
+        function initChart() {
+            const ctx = document.getElementById('freqChart').getContext('2d');
+            const nums = DATA.map(d => d.number).join("");
+            const counts = Array(10).fill(0);
+            nums.split("").forEach(n => counts[parseInt(n)]++);
+
+            if (chartInstance) chartInstance.destroy();
+            chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['0','1','2','3','4','5','6','7','8','9'],
+                    datasets: [{
+                        label: 'Frequency',
+                        data: counts,
+                        backgroundColor: '#3b82f6',
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { display: false } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        function exportUserData() {
+            const blob = new Blob([JSON.stringify(userData, null, 2)], { type: "application/json" });
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = "gst_v2_backup.json";
+            a.click();
+        }
+
+        darkToggle.onclick = () => {
+            document.documentElement.classList.toggle("dark");
+            localStorage.setItem("gst_dark", document.documentElement.classList.contains("dark"));
+        };
+        
+        if (localStorage.getItem("gst_dark") === "true") document.documentElement.classList.add("dark");
+
+        window.onload = init;
+    </script>
+
+</body>
+</html>
+
