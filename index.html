@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>GoneShweToe – Myanmar 3D Lottery Calendar</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: {
+    extend: {
+      colors: {
+        primary: '#2563eb',
+        accent: '#f59e0b'
+      }
+    }
+  }
+}
+</script>
+
+<style>
+body { -webkit-tap-highlight-color: transparent; }
+
+/* cell animation */
+.cell{
+  position:relative;
+  transition: transform .18s ease, box-shadow .18s ease, background-color .18s ease;
+}
+.cell:active{ transform:scale(1.06); }
+.cell.highlight{
+  outline:2px solid #f59e0b;
+  box-shadow:0 0 0 3px rgba(245,158,11,.35);
+}
+
+/* sticky shadow */
+.sticky-col{
+  position:sticky;
+  left:0;
+  z-index:10;
+  box-shadow:2px 0 6px rgba(0,0,0,.08);
+}
+.dark .sticky-col{
+  box-shadow:2px 0 6px rgba(0,0,0,.45);
+}
+
+/* svg path */
+#pathSvg{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+}
+.path-line{
+  fill:none;
+  stroke:#f59e0b;
+  stroke-width:3;
+  stroke-dasharray:8 6;
+  animation:dash 12s linear infinite;
+}
+@keyframes dash{ to{ stroke-dashoffset:-400; } }
+</style>
+</head>
+
+<body class="bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+
+<header class="sticky top-0 z-50 bg-white dark:bg-slate-800 shadow">
+  <div class="max-w-6xl mx-auto p-4 flex justify-between items-center">
+    <div>
+      <h1 class="text-xl font-black text-primary">GoneShweToe</h1>
+      <p class="text-xs opacity-60">Myanmar 3D Lottery Calendar</p>
+    </div>
+    <button id="darkToggle" class="px-3 py-1 rounded bg-slate-200 dark:bg-slate-700">🌙</button>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto p-4 space-y-4">
+
+<section class="bg-blue-50 dark:bg-slate-800 border rounded-xl p-4 text-sm">
+👋 <b>Welcome!</b> Tap any number to add your personal note.  
+<div class="opacity-60">Your data is saved on this device only.</div>
+</section>
+
+<section class="bg-white dark:bg-slate-800 rounded-xl shadow overflow-auto relative">
+  <svg id="pathSvg"></svg>
+
+  <table class="border-collapse w-full text-sm">
+    <thead class="bg-slate-50 dark:bg-slate-700 sticky top-0 z-20">
+      <tr id="yearRow">
+        <th class="p-2 sticky-col bg-slate-50 dark:bg-slate-700">Round</th>
+      </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+</section>
+
+<div class="flex items-center gap-2 text-sm">
+  🔍 <input id="searchInput" type="number" placeholder="Search number..."
+    class="border rounded px-2 py-1 w-full dark:bg-slate-800">
+</div>
+
+<button onclick="exportUserData()" class="text-xs underline mx-auto block">
+Export My Data
+</button>
+
+</main>
+
+<footer class="text-center text-xs opacity-60 p-4">
+© 2025 GoneShweToe
+</footer>
+
+<!-- MODAL -->
+<div id="modal" class="fixed inset-0 hidden items-end sm:items-center justify-center bg-black/40 backdrop-blur">
+  <div class="bg-white dark:bg-slate-800 w-full sm:w-96 rounded-t-xl sm:rounded-xl p-4">
+    <h3 class="font-bold mb-2">Edit</h3>
+    <input id="colorInput" type="color" class="w-full h-10 mb-2"/>
+    <textarea id="noteInput" class="w-full border rounded p-2 dark:bg-slate-700" placeholder="Note..."></textarea>
+    <div class="flex justify-end gap-2 mt-3">
+      <button onclick="closeModal()">Cancel</button>
+      <button onclick="saveModal()" class="bg-primary text-white px-3 py-1 rounded">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const DATA_URL="./data/public_data.json";
+const KEY="gst_user";
+let userData=JSON.parse(localStorage.getItem(KEY)||"{}");
+let DATA=[], currentId=null;
+
+fetch(DATA_URL).then(r=>r.json()).then(d=>{DATA=d; render();});
+
+function render(){
+const years=[...new Set(DATA.map(d=>new Date(d.date).getFullYear()))];
+const map={}; years.forEach(y=>map[y]=Array(24).fill(""));
+
+DATA.forEach(d=>{
+const dt=new Date(d.date);
+const r=dt.getMonth()*2+(dt.getDate()>=16?1:0);
+map[dt.getFullYear()][r]=d.number;
+});
+
+years.forEach(y=>{
+const th=document.createElement("th");
+th.textContent=y;
+th.className="p-2";
+yearRow.appendChild(th);
+});
+
+for(let r=0;r<24;r++){
+const tr=document.createElement("tr");
+tr.innerHTML=`<td class="p-2 sticky-col bg-white dark:bg-slate-800 font-bold">${r+1}</td>`;
+years.forEach(y=>{
+const id=`${y}-${r}`;
+const td=document.createElement("td");
+td.className="p-2 text-center cell cursor-pointer";
+td.textContent=map[y][r]||"—";
+
+if(userData[id]?.color){
+  td.style.background=userData[id].color;
+  td.style.color="#fff";
+}
+if(userData[id]?.note){
+  td.innerHTML+=`<span style="position:absolute;top:3px;right:3px;width:7px;height:7px;background:#ef4444;border-radius:50%"></span>`;
+}
+
+td.onclick=()=>{
+  openModal(id);
+  highlightNumber(td.textContent);
+};
+tr.appendChild(td);
+});
+tableBody.appendChild(tr);
+}
+}
+
+function highlightNumber(num){
+document.querySelectorAll(".cell").forEach(c=>{
+  c.classList.toggle("highlight",c.textContent===num);
+});
+drawPath(num);
+}
+
+function drawPath(num){
+const svg=document.getElementById("pathSvg");
+svg.innerHTML="";
+const cells=[...document.querySelectorAll(".cell")].filter(c=>c.textContent===num);
+if(cells.length<2) return;
+
+const rect=svg.parentElement.getBoundingClientRect();
+svg.setAttribute("width",rect.width);
+svg.setAttribute("height",rect.height);
+
+let d="";
+cells.forEach((c,i)=>{
+const r=c.getBoundingClientRect();
+const x=r.left-rect.left+r.width/2;
+const y=r.top-rect.top+r.height/2;
+d+=`${i===0?"M":"L"} ${x} ${y} `;
+});
+const path=document.createElementNS("http://www.w3.org/2000/svg","path");
+path.setAttribute("d",d);
+path.setAttribute("class","path-line");
+svg.appendChild(path);
+}
+
+searchInput.oninput=e=>highlightNumber(e.target.value);
+
+function openModal(id){
+currentId=id;
+modal.classList.remove("hidden");
+colorInput.value=userData[id]?.color||"#f59e0b";
+noteInput.value=userData[id]?.note||"";
+}
+function closeModal(){modal.classList.add("hidden");}
+function saveModal(){
+userData[currentId]={color:colorInput.value,note:noteInput.value};
+localStorage.setItem(KEY,JSON.stringify(userData));
+location.reload();
+}
+
+function exportUserData(){
+const blob=new Blob([JSON.stringify(userData)],{type:"application/json"});
+const a=document.createElement("a");
+a.href=URL.createObjectURL(blob);
+a.download="goneshwetoe_backup.json";
+a.click();
+}
+
+darkToggle.onclick=()=>{
+document.documentElement.classList.toggle("dark");
+localStorage.setItem("dark",document.documentElement.classList.contains("dark"));
+}
+if(localStorage.getItem("dark")==="true"){
+document.documentElement.classList.add("dark");
+}
+</script>
+
+</body>
+</html>
